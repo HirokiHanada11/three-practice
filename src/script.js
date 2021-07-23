@@ -35,7 +35,7 @@ let landMaterial = new THREE.MeshStandardMaterial( {
 let landPlane = new THREE.Mesh( landGeometry, landMaterial );
 planeGroup.add( landPlane );
 
-const waterGeometry = new THREE.PlaneBufferGeometry( 100, 50, 16, 16);
+const waterGeometry = new THREE.PlaneBufferGeometry( 150, 75, 16, 16);
 
 let waterMap = loader.load('./textures/water-normal-map.jpg');
 waterMap.wrapS = THREE.RepeatWrapping;
@@ -47,55 +47,34 @@ let waterMaterial = new THREE.MeshStandardMaterial({
     normalMap: waterMap
 })
 
-// let waterMaterial = new MeshBasicMaterial({color: new THREE.Color('skyblue'),});
 let waterPlane = new THREE.Mesh( waterGeometry, waterMaterial );
 planeGroup.add(waterPlane);
 waterPlane.position.z=0.5
 scene.add(planeGroup);
 
 
-// const geometry = new THREE.SphereGeometry( 1, 32, 32 );
-// const cylinderGeometry = new THREE.CylinderGeometry( 1.2, 0.2, 3, 32);
-
-// //loading 3D models
-// const fbxLoader = new FBXLoader()
-// fbxLoader.load(
-//     'models/xbot.fbx',
-//     (object) => {
-//         object.scale.set(.05, .05, .05)
-//         object.rotateX(Math.PI / 2)
-//         modelGroup.add(object)
-//     },
-//     (xhr) => {
-//         console.log((xhr.loaded / xhr.total) * 100 + '% loaded')
-//     },
-//     (error) => {
-//         console.log(error)
-//     }
-// )
-
-
+const sphereGeometry = new THREE.SphereGeometry( 1, 32, 32 );
+const cylinderGeometry = new THREE.CylinderGeometry( 1.2, 0.2, 3, 32);
 
 // Materials
 
-// const material = new THREE.MeshBasicMaterial()
-// material.color = new THREE.Color(0xff0000)
+const material = new THREE.MeshBasicMaterial()
+material.color = new THREE.Color(0xff0000)
 
-
+const modelGroup = new THREE.Group();
 
 // Mesh
-// const sphere = new THREE.Mesh(geometry,material)
-// const cylinder = new THREE.Mesh(cylinderGeometry,material)
-// cylinder.position.z = 2;
-// cylinder.rotateX(- Math.PI / 2)
-// sphere.position.z = 4;
-// modelGroup.add(cylinder)
-// modelGroup.add(sphere)
+const sphere = new THREE.Mesh(sphereGeometry,material)
+const cylinder = new THREE.Mesh(cylinderGeometry,material)
+cylinder.position.z = 2;
+cylinder.rotateX(- Math.PI / 2)
+sphere.position.z = 4;
+modelGroup.add(cylinder)
+modelGroup.add(sphere)
+modelGroup.position.set(30,10,1.5);
 
-// gui.add(modelGroup.position, 'x').min(-50).max(50).step(1);
-// gui.add(modelGroup.position, 'y').min(-25).max(25).step(1);
 
-// scene.add(modelGroup);
+scene.add(modelGroup);
 
 
 //grid
@@ -106,13 +85,13 @@ scene.add( gridHelper );
 gridHelper.rotateX(Math.PI / 2);
 // Lights
 
-const pointLight = new THREE.PointLight(0xffffff, 0.5)
+const pointLight = new THREE.PointLight(0xffffed, 0.5)
 pointLight.position.x = 30
 pointLight.position.y = 0
 pointLight.position.z = 40
 scene.add(pointLight)
 
-const pointLight2 = new THREE.PointLight(0xffffff, 0.5)
+const pointLight2 = new THREE.PointLight(0xffffed, 0.5)
 pointLight2.position.x = -30
 pointLight2.position.y = 0
 pointLight2.position.z = 40
@@ -139,6 +118,12 @@ window.addEventListener('resize', () =>
     // Update renderer
     renderer.setSize(sizes.width, sizes.height)
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+})
+
+let launch = false; 
+window.addEventListener('click', () => {
+    launch = !launch; 
+    console.log(launch);
 })
 
 /**
@@ -174,6 +159,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
  */
 
 const clock = new THREE.Clock()
+let inclement = 0.01
 
 const tick = () =>
 {
@@ -192,6 +178,21 @@ const tick = () =>
     // pointLight2.position.z = -60 * Math.cos(elapsedTime);
 
     waterPlane.material.normalScale.set( Math.sin(elapsedTime), Math.cos(elapsedTime));
+    camera.position.x = 4 * Math.cos(elapsedTime * 0.1);
+    camera.position.y = 2 * Math.sin(elapsedTime * 0.1); 
+    camera.lookAt(0,0,0)
+
+    if(launch){
+        inclement *= 1.01;
+        modelGroup.position.x += inclement; 
+        console.log(modelGroup.position.x, inclement)
+        if(modelGroup.position.x > 30){
+            modelGroup.position.x = 0;
+            console.log(modelGroup.position.x)
+            launch = false;
+        }
+    }
+
 
     // Render
     renderer.render(scene, camera)
