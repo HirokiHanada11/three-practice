@@ -23,12 +23,12 @@ let loader = new THREE.TextureLoader();
 //let texture = loader.load("./textures/world-map-colored.jpg");
 //let height = loader.load('./textures/world-height-map.png');
 
-let height = loader.load('./textures/monochrome-height.jpg');
+let height = loader.load('./textures/world-height-map-v8.jpg');
 
-let texture = loader.load('./textures/monochrome-height.jpg');
+let texture = loader.load('./textures/world-height-map-v8.jpg');
 
 //const landGeometry = new THREE.PlaneBufferGeometry( 100, 50, 1012, 1012 );
-const landGeometry = new THREE.SphereBufferGeometry(20, 1024, 1024);
+const landGeometry = new THREE.SphereBufferGeometry(20, 512, 256);
 
 let landMaterial = new THREE.MeshStandardMaterial( {
     map: texture,
@@ -42,7 +42,7 @@ let landSphere = new THREE.Mesh( landGeometry, landMaterial );
 sphereGroup.add(landSphere);
 
 //const waterGeometry = new THREE.PlaneBufferGeometry( 150, 75, 16, 16);
-const waterGeometry = new THREE.SphereBufferGeometry(20.5, 16, 16);
+const waterGeometry = new THREE.SphereBufferGeometry(20.5, 32, 32);
 
 let waterMap = loader.load('./textures/water-normal-map.jpg');
 waterMap.wrapS = THREE.RepeatWrapping;
@@ -78,18 +78,15 @@ const modelGroup = new THREE.Group();
 // Mesh
 const sphere = new THREE.Mesh(sphereGeometry,material)
 const cylinder = new THREE.Mesh(cylinderGeometry,material)
-cylinder.position.z = 2;
-cylinder.rotateX(- Math.PI / 2)
-sphere.position.z = 4;
+cylinder.position.z = -2;
+cylinder.rotateX( Math.PI / 2)
+sphere.position.z = -4;
 modelGroup.add(cylinder)
 modelGroup.add(sphere)
-modelGroup.position.setFromSphericalCoords(23,Math.PI/4,-Math.PI/4); //(radius, phi, theta) phi: yz plane theta: xz plane 
-
+modelGroup.position.setFromSphericalCoords(20,Math.PI/3,-Math.PI/4); //(radius, phi, theta) phi: yz plane theta: xz plane 
+modelGroup.lookAt(0,0,0);
 sphereGroup.add(modelGroup);
 
-gui.add(modelGroup.rotation, 'x', 0, Math.PI * 2, Math.PI / 4);
-gui.add(modelGroup.rotation, 'y', 0, Math.PI * 2, Math.PI / 4);
-gui.add(modelGroup.rotation, 'z', 0, Math.PI * 2, Math.PI / 4);
 //scene.add(modelGroup);
 
 
@@ -101,29 +98,13 @@ scene.add( gridHelper );
 gridHelper.rotateX(Math.PI / 2);
 // Lights
 
-const pointLight = new THREE.PointLight(0xffffed, 1)
-pointLight.position.x = 0
-pointLight.position.y = 0
-pointLight.position.z = 80
-scene.add(pointLight)
+const sun = new THREE.DirectionalLight(0xffffed, 1);
+sun.position.set(0,0,60);
+sun.target.position.set(0,0,0);
+scene.add(sun, sun.target);
 
-const pointLight2 = new THREE.PointLight(0xffffed, 1)
-pointLight2.position.x = 0
-pointLight2.position.y = 0
-pointLight2.position.z = -80
-scene.add(pointLight2)
-
-const pointLight3 = new THREE.PointLight(0xffffed, 1)
-pointLight3.position.x = 80
-pointLight3.position.y = 0
-pointLight3.position.z = 0
-scene.add(pointLight3)
-
-const pointLight4 = new THREE.PointLight(0xffffed, 1)
-pointLight4.position.x = -80
-pointLight4.position.y = 0
-pointLight4.position.z = 0
-scene.add(pointLight4)
+const ambient = new THREE.AmbientLight(0xffffed, 0.1);
+scene.add(ambient);
 
 /**
  * Sizes
@@ -148,11 +129,6 @@ window.addEventListener('resize', () =>
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 })
 
-let launch = false; 
-// window.addEventListener('click', () => {
-//     launch = !launch; 
-//     console.log(launch);
-// })
 
 /**
  * Camera
@@ -166,11 +142,7 @@ scene.add(camera)
 
 //Controls
 const controls = new OrbitControls(camera, canvas);
-// controls.enableRotate = true;
-// controls.enableZoom = false;
-// controls.maxAzimuthAngle = [-2*Math.PI, 2*Math.PI];
-// controls.maxPolarAngle = 0;
-// controls.enableDamping = true
+
 
 /**
  * Renderer
@@ -186,12 +158,67 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 // controls.enableDamping = true
 // controls.target.set(0, 1, 0)
 
+let targetQuarternion = new THREE.Quaternion();
+const target = new THREE.Vector3(50,0,0)
+let launch = false; 
+let curve = new THREE.Curve();
+window.addEventListener('keyup', async () => {
+    if(!launch){
+    await createPayload(modelGroup, sphereGroup);
+    }
+    launch = await true; 
+    console.log(launch);
+})
+
+const createPayload = (modelGroup) => {
+    const position = new THREE.Vector3();
+    position.setFromMatrixPosition(modelGroup.matrixWorld)
+    
+
+    const geometry = new THREE.SphereGeometry( 1, 32, 32 );
+    const material = new THREE.MeshBasicMaterial( { color: 0xffff00 } );
+    const lathe = new THREE.Mesh( geometry, material );
+    lathe.name = "Lathe";
+    lathe.position.set(position.x, position.y, position.z);
+    lathe.lookAt(0,0,0);
+    scene.add(lathe);
+
+    let p1 = new THREE.Vector3();
+    let p2 = new THREE.Vector3();
+    let px = new THREE.Vector3();
+    let py = new THREE.Vector3();
+    let p = new THREE.Vector3();
+    let p0 = position;
+    let p3 = target;
+    let angle = Math.abs(position.angleTo(target));
+    if (angle > Math.PI/2){
+        px.set(0, p0.y, p0 .z).normalize();
+        py.copy(p3).normalize();
+        p2.copy(px).multiplyScalar(40*angle/Math.PI);
+        p1.copy(p0).add(p.copy(px).multiplyScalar(40*angle/Math.PI)).add(py.multiplyScalar(-5));
+    }
+    else{
+        px.set(0, p0.y, p0 .z).normalize();
+        py.copy(p3).normalize();
+        p1.copy(px).multiplyScalar(30*(angle / (Math.PI/2))).add(p.copy(py).multiplyScalar(5));
+        p2.copy(px).multiplyScalar(30*(angle / (Math.PI/2))).add(p.copy(py).multiplyScalar(30));
+    }
+    console.log(p0,p1,p2,p3)
+    curve = new THREE.CubicBezierCurve3(p0,p1,p2,p3);
+    // const points = curve.getPoints(50);
+    // const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
+    // const curveObject = new THREE.Line(lineGeometry, material);
+    // curveObject.name = 'Curve';
+    // scene.add(curveObject);
+}
+
+
 /**
  * Animate
  */
 
 const clock = new THREE.Clock()
-let inclement = 0.01
+let fraction = 0.01;
 
 const tick = () =>
 {
@@ -200,33 +227,29 @@ const tick = () =>
 
     // Update objects
     //sphere.rotation.y = .5 * elapsedTime
-
+ 
     // Update Orbital Controls
     controls.update()
 
-    // pointLight.position.x = 60 * Math.sin(elapsedTime);
-    // pointLight.position.z = 60 * Math.cos(elapsedTime);
-    // pointLight2.position.x = -60 * Math.sin(elapsedTime);
-    // pointLight2.position.z = -60 * Math.cos(elapsedTime);
-
-    // sphereGroup.rotation.y = .5 *elapsedTime;
+    sphereGroup.rotation.y = .5 *elapsedTime;
     //waterPlane.material.normalScale.set( Math.sin(elapsedTime), Math.cos(elapsedTime));
     waterSphere.material.normalScale.set( Math.sin(elapsedTime), Math.cos(elapsedTime));
-    // camera.position.x = 4 * Math.cos(elapsedTime * 0.1);
-    // camera.position.y = 2 * Math.sin(elapsedTime * 0.1); 
-    // camera.lookAt(0,0,0)
 
     if(launch){
-        inclement *= 1.01;
-        modelGroup.position.x += inclement; 
-        console.log(modelGroup.position.x, inclement)
-        if(modelGroup.position.x > 30){
-            modelGroup.position.x = 0;
-            console.log(modelGroup.position.x)
+        let lathe = scene.getObjectByName('Lathe');
+        // let curveObj = scene.getObjectByName('Curve');
+        if(fraction<1){
+            let newPosition = curve.getPoint(fraction);
+            lathe.position.set(newPosition.x,newPosition.y,newPosition.z);
+            fraction += 0.01;
+        } else{
+            fraction = 0;
             launch = false;
-            inclement = 0.01;
+            scene.remove(lathe);
+            // scene.remove(curveObj);
         }
     }
+    
 
 
     // Render
