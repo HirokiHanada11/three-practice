@@ -3,7 +3,8 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader'
 import * as dat from 'dat.gui'
-import { MeshBasicMaterial } from 'three'
+import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
+import { PointsMaterial, SphereGeometry } from 'three'
 
 // Debug
 const gui = new dat.GUI()
@@ -65,8 +66,8 @@ sphereGroup.add(waterSphere);
 scene.add(sphereGroup);
 
 
-const sphereGeometry = new THREE.SphereGeometry( 1, 32, 32 );
-const cylinderGeometry = new THREE.CylinderGeometry( 1.2, 0.2, 3, 32);
+const sphereGeometry = new THREE.SphereBufferGeometry( 1, 32, 32 );
+const cylinderGeometry = new THREE.CylinderBufferGeometry( 1.2, 0.2, 3, 32);
 
 // Materials
 
@@ -78,16 +79,15 @@ const modelGroup = new THREE.Group();
 // Mesh
 const sphere = new THREE.Mesh(sphereGeometry,material)
 const cylinder = new THREE.Mesh(cylinderGeometry,material)
-cylinder.position.z = -2;
-cylinder.rotateX( Math.PI / 2)
 sphere.position.z = -4;
+cylinder.position.z = -2;
+cylinder.rotateX(Math.PI / 2)
 modelGroup.add(cylinder)
 modelGroup.add(sphere)
 modelGroup.position.setFromSphericalCoords(20,Math.PI/3,-Math.PI/4); //(radius, phi, theta) phi: yz plane theta: xz plane 
 modelGroup.lookAt(0,0,0);
-sphereGroup.add(modelGroup);
 
-//scene.add(modelGroup);
+sphereGroup.add(modelGroup);
 
 
 //grid
@@ -158,7 +158,6 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 // controls.enableDamping = true
 // controls.target.set(0, 1, 0)
 
-let targetQuarternion = new THREE.Quaternion();
 const target = new THREE.Vector3(50,0,0)
 let launch = false; 
 let curve = new THREE.Curve();
@@ -170,18 +169,44 @@ window.addEventListener('keyup', async () => {
     console.log(launch);
 })
 
+const pointLight = new THREE.PointLight(new THREE.Color("#a7d8de"),0.5);
+pointLight.name = "Lathe";
+scene.add(pointLight);
+
+const alphaMap = loader.load("./textures/alpha-map.png")
 const createPayload = (modelGroup) => {
     const position = new THREE.Vector3();
     position.setFromMatrixPosition(modelGroup.matrixWorld)
     
+    // const geometry = new THREE.SphereBufferGeometry( 0.2, 8, 8 );
+    // const material = new THREE.MeshStandardMaterial( { color: new THREE.Color("#a7d8de"), } );
+    // const lathe = new THREE.Mesh( geometry, material );
+    // lathe.name = "Lathe";
+    
 
-    const geometry = new THREE.SphereGeometry( 1, 32, 32 );
-    const material = new THREE.MeshBasicMaterial( { color: 0xffff00 } );
-    const lathe = new THREE.Mesh( geometry, material );
-    lathe.name = "Lathe";
-    lathe.position.set(position.x, position.y, position.z);
-    lathe.lookAt(0,0,0);
-    scene.add(lathe);
+    const tarilGeometry = new THREE.CylinderBufferGeometry(0.2,0.7, 1, 8, 8, false);
+    // const trailMaterial = new THREE.MeshStandardMaterial( { color: new THREE.Color("#85b0bd"), emissiveIntensity: 0.5} );
+    // const trail = new THREE.Mesh( tarilGeometry, trailMaterial );
+    const trailMaterial = new PointsMaterial({size:0.0005}) 
+    const trail = new THREE.Points(tarilGeometry, trailMaterial);
+
+    const tarilGeometry2 = new THREE.CylinderBufferGeometry(0.4,0.1, 3.5, 8, 8, false);
+    // const trailMaterial2 = new THREE.MeshStandardMaterial( { color: new THREE.Color("#85b0bd") } );
+    // const trail2 = new THREE.Mesh( tarilGeometry2, trailMaterial2 );
+    const trailMaterial2 = new PointsMaterial({size:0.0005}) 
+    const trail2 = new THREE.Points(tarilGeometry2, trailMaterial2);
+    trail2.position.y = -2;
+
+    const trailGroup = new THREE.Group();
+    trailGroup.name = "Trail";
+    trailGroup.add(trail);
+    trailGroup.add(trail2);
+
+    pointLight.position.set(position.x, position.y, position.z); 
+    trailGroup.position.set(position.x, position.y, position.z);
+
+    // scene.add(lathe);
+    scene.add(trailGroup);
 
     let p1 = new THREE.Vector3();
     let p2 = new THREE.Vector3();
@@ -218,7 +243,9 @@ const createPayload = (modelGroup) => {
  */
 
 const clock = new THREE.Clock()
-let fraction = 0.01;
+let fraction = 0.03;
+const up = new THREE.Vector3(0,1,0);
+const axis = new THREE.Vector3();
 
 const tick = () =>
 {
@@ -237,15 +264,24 @@ const tick = () =>
 
     if(launch){
         let lathe = scene.getObjectByName('Lathe');
+        let trail = scene.getObjectByName('Trail');
         // let curveObj = scene.getObjectByName('Curve');
         if(fraction<1){
             let newPosition = curve.getPoint(fraction);
-            lathe.position.set(newPosition.x,newPosition.y,newPosition.z);
+            lathe.position.copy(newPosition);
+            
+            const tangent = curve.getTangent(fraction-0.02); 
+            const radians = up.angleTo(tangent);
+            axis.crossVectors(up,tangent).normalize();
+            let trailPosition = curve.getPoint(fraction-0.02);
+            trail.position.copy(trailPosition);
+            trail.quaternion.setFromAxisAngle(axis,radians);
             fraction += 0.01;
         } else{
-            fraction = 0;
+            fraction = 0.03;
             launch = false;
-            scene.remove(lathe);
+            lathe.position.set(0,0,0);
+            scene.remove(trail);
             // scene.remove(curveObj);
         }
     }
